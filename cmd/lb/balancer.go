@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"log"
 	"net/http"
@@ -22,14 +23,7 @@ var (
 )
 
 var (
-	timeout     = time.Duration(*timeoutSec) * time.Second
-	serversPool = []string{
-		"server1:8080",
-		"server2:8080",
-		"server3:8080",
-	}
-
-	freeServers []string
+	timeout = time.Duration(*timeoutSec) * time.Second
 )
 
 func scheme() string {
@@ -86,43 +80,79 @@ func forward(dst string, rw http.ResponseWriter, r *http.Request) error {
 	}
 }
 
-func checkServers() {
-	freeServers = []string{}
+type Balancer struct {
+	pool   []string
+	active []string
 
-	for _, server := range serversPool {
-		isFree := health(server)
+	checker func(server string) bool
+	forward func(dst string, rw http.ResponseWriter, r *http.Request) error
+}
+
+func (b *Balancer) Hash(url string) uint64 {
+	hasher := fnv.New64()
+	_, _ = hasher.Write([]byte(url))
+	return hasher.Sum64()
+}
+
+func (b *Balancer) Check() {
+	b.active = []string{}
+
+	for _, server := range b.pool {
+		isFree := b.checker(server)
 		if isFree {
-			freeServers = append(freeServers, server)
+			b.active = append(b.active, server)
 		} else {
 			fmt.Printf("Server %s is unavailable", server)
 		}
 	}
 }
 
-func startAnalysis() {
-	checkServers()
+func (b *Balancer) Analyse() {
+	b.Check()
 
 	go func() {
 		for range time.Tick(10 * time.Second) {
-			checkServers()
+			b.Check()
 		}
 	}()
 }
 
-func main() {
+func (b *Balancer) Run() {
 	flag.Parse()
 
-	// Update servers list every 10 seconds
-	// The list of active servers stored in freeServers
-	startAnalysis()
+	b.Analyse()
 
 	frontend := httptools.CreateServer(*port, http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		// TODO: Рееалізуйте свій алгоритм балансувальника.
-		forward(serversPool[0], rw, r)
+		if len(b.active) == 0 {
+			log.Println("No free servers available")
+			rw.WriteHeader(http.StatusBadGateway)
+			return
+		}
+
+		serverIndex := b.Hash(r.URL.Path) % uint64(len(b.pool))
+		err := b.forward(b.pool[serverIndex], rw, r)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}))
 
 	log.Println("Starting load balancer...")
 	log.Printf("Tracing support enabled: %t", *traceEnabled)
 	frontend.Start()
 	signal.WaitForTerminationSignal()
+}
+
+func main() {
+	balancer := Balancer{
+		pool: []string{
+			"server1:8080",
+			"server2:8080",
+			"server3:8080",
+		},
+		active:  []string{},
+		checker: health,
+		forward: forward,
+	}
+
+	balancer.Run()
 }
