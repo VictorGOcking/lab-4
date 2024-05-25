@@ -17,6 +17,25 @@ var port = flag.Int("port", 8080, "server port")
 const confResponseDelaySec = "CONF_RESPONSE_DELAY_SEC"
 const confHealthFailure = "CONF_HEALTH_FAILURE"
 
+func addComplexHandlers(h *http.ServeMux, report Report, pathes []string) {
+	for _, path := range pathes {
+		h.HandleFunc(path, func(rw http.ResponseWriter, r *http.Request) {
+			respDelayString := os.Getenv(confResponseDelaySec)
+			if delaySec, parseErr := strconv.Atoi(respDelayString); parseErr == nil && delaySec > 0 && delaySec < 300 {
+				time.Sleep(time.Duration(delaySec) * time.Second)
+			}
+
+			report.Process(r)
+
+			rw.Header().Set("content-type", "application/json")
+			rw.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(rw).Encode([]string{
+				"1", "2",
+			})
+		})
+	}
+}
+
 func main() {
 	h := new(http.ServeMux)
 
@@ -33,19 +52,10 @@ func main() {
 
 	report := make(Report)
 
-	h.HandleFunc("/api/v1/some-data", func(rw http.ResponseWriter, r *http.Request) {
-		respDelayString := os.Getenv(confResponseDelaySec)
-		if delaySec, parseErr := strconv.Atoi(respDelayString); parseErr == nil && delaySec > 0 && delaySec < 300 {
-			time.Sleep(time.Duration(delaySec) * time.Second)
-		}
-
-		report.Process(r)
-
-		rw.Header().Set("content-type", "application/json")
-		rw.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(rw).Encode([]string{
-			"1", "2",
-		})
+	addComplexHandlers(h, report, []string{
+		"/api/v1/some-data",
+		"/api/v2/wtf/what-is-it",
+		"/really/good/endpoint",
 	})
 
 	h.Handle("/report", report)
