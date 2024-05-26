@@ -7,5 +7,8 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
+      - name: Run Balancer Unit Tests
+        run: go test -v ./cmd/lb
+
       - name: Run docker-compose
         run: docker-compose -f docker-compose.yaml -f docker-compose.test.yaml up --exit-code-from test
