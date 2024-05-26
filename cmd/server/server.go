@@ -17,8 +17,8 @@ var port = flag.Int("port", 8080, "server port")
 const confResponseDelaySec = "CONF_RESPONSE_DELAY_SEC"
 const confHealthFailure = "CONF_HEALTH_FAILURE"
 
-func addComplexHandlers(h *http.ServeMux, report Report, pathes []string) {
-	for _, path := range pathes {
+func addComplexHandlers(h *http.ServeMux, report Report, paths []string) {
+	for _, path := range paths {
 		h.HandleFunc(path, func(rw http.ResponseWriter, r *http.Request) {
 			respDelayString := os.Getenv(confResponseDelaySec)
 			if delaySec, parseErr := strconv.Atoi(respDelayString); parseErr == nil && delaySec > 0 && delaySec < 300 {
