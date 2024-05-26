@@ -41,9 +41,9 @@ func captureOutput(f func()) string {
 
 func TestBalancer(t *testing.T) {
 	b := &Balancer{
-		pool: []string{"server1", "server2", "server3", "server4"},
+		pool: []string{"srv1", "srv2", "srv3", "srv4"},
 		checker: func(dst string) bool {
-			return dst != "server2"
+			return dst != "srv2"
 		},
 		active: []string{},
 	}
@@ -78,6 +78,6 @@ func TestBalancer(t *testing.T) {
 		b.Check()
 	})
 
-	assert.Equal(t, []string{"server1", "server3", "server4"}, b.active)
-	assert.Contains(t, output, "Server server2 is unavailable")
+	assert.Equal(t, []string{"srv1", "srv3", "srv4"}, b.active)
+	assert.Contains(t, output, "Server srv2 is unavailable")
 }
