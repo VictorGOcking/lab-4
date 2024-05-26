@@ -1,0 +1,11 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Run docker-compose
+        run: docker-compose -f docker-compose.yaml -f docker-compose.test.yaml up --exit-code-from test
