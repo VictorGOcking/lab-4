@@ -15,12 +15,16 @@ func main() {
 	client := new(http.Client)
 	client.Timeout = 10 * time.Second
 
+	endpoints := []string{"api/v1/some-data", "api/v2/wtf/what-is-it", "really/good/endpoint"}
+
 	for range time.Tick(1 * time.Second) {
-		resp, err := client.Get(fmt.Sprintf("%s/api/v1/some-data", *target))
-		if err == nil {
-			log.Printf("response %d", resp.StatusCode)
-		} else {
-			log.Printf("error %s", err)
+		for _, endpoint := range endpoints {
+			resp, err := client.Get(fmt.Sprintf("%s/%s", *target, endpoint))
+			if err == nil {
+				log.Printf("response %d", resp.StatusCode)
+			} else {
+				log.Printf("error %s", err)
+			}
 		}
 	}
 }
