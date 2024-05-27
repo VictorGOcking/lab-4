@@ -88,10 +88,10 @@ type Balancer struct {
 	forward func(dst string, rw http.ResponseWriter, r *http.Request) error
 }
 
-func (b *Balancer) Hash(url string) uint32 {
-	hasher := fnv.New32()
+func (b *Balancer) Hash(url string) uint64 {
+	hasher := fnv.New64()
 	_, _ = hasher.Write([]byte(url))
-	return hasher.Sum32()
+	return hasher.Sum64()
 }
 
 func (b *Balancer) Check() {
@@ -129,7 +129,7 @@ func (b *Balancer) Run() {
 			return
 		}
 
-		serverIndex := b.Hash(r.URL.Path) % uint32(len(b.pool))
+		serverIndex := b.Hash(r.URL.Path) % uint64(len(b.pool))
 		err := b.forward(b.pool[serverIndex], rw, r)
 		if err != nil {
 			log.Fatal(err)
