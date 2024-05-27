@@ -50,7 +50,7 @@ func TestBalancer(t *testing.T) {
 
 	// test index assigning
 	findSrvIndex := func(url string) int {
-		return int(b.Hash(url) % uint64(len(b.pool)))
+		return int(b.Hash(url) % uint32(len(b.pool)))
 	}
 
 	serverIdx1 := findSrvIndex("/url/to/somewhere")
