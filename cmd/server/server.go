@@ -53,9 +53,9 @@ func main() {
 	report := make(Report)
 
 	addComplexHandlers(h, report, []string{
-		"/api/v1/some-data",
-		"/api/v2/wtf/what-is-it",
-		"/really/good/endpoint",
+		"/api/v1/wow-data",
+		"/api/v2/wtf/lol-data",
+		"/really/good/end-point",
 	})
 
 	h.Handle("/report", report)

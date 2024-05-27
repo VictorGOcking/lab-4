@@ -31,9 +31,9 @@ func TestBalancer(t *testing.T) {
 		expectedLB  string
 		description string
 	}{
-		{fmt.Sprintf("%s/api/v2/wtf/what-is-it", baseAddress), "server1:8080", "test server #1"},
-		{fmt.Sprintf("%s/api/v1/some-data", baseAddress), "server2:8080", "test server #2"},
-		{fmt.Sprintf("%s/really/good/endpoint", baseAddress), "server3:8080", "test server #3"},
+		{fmt.Sprintf("%s/api/v2/wtf/lol-data", baseAddress), "server1:8080", "test server #1"},
+		{fmt.Sprintf("%s/api/v1/wow-data", baseAddress), "server2:8080", "test server #2"},
+		{fmt.Sprintf("%s/really/good/end-point", baseAddress), "server3:8080", "test server #3"},
 	}
 
 	for _, test := range serverTests {
@@ -41,7 +41,7 @@ func TestBalancer(t *testing.T) {
 	}
 
 	// Test repeated request to server #3
-	runServerTest(t, fmt.Sprintf("%s/really/good/endpoint", baseAddress), serverTests[2].expectedLB, "test repeated request to server #3")
+	runServerTest(t, fmt.Sprintf("%s/really/good/end-point", baseAddress), serverTests[2].expectedLB, "test repeated request to server #3")
 }
 
 func runServerTest(t *testing.T, url, expectedLB, description string) {
@@ -59,7 +59,7 @@ func BenchmarkBalancer(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-		resp, err := client.Get(fmt.Sprintf("%s/api/v1/some-data", baseAddress))
+		resp, err := client.Get(fmt.Sprintf("%s/api/v1/wow-data", baseAddress))
 		assert.NoError(b, err, "benchmark request")
 		resp.Body.Close()
 	}
