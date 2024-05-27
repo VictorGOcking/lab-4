@@ -31,7 +31,7 @@ func TestBalancer(t *testing.T) {
 		expectedLB  string
 		description string
 	}{
-		{fmt.Sprintf("%s/api/v2/wtf/lol-data", baseAddress), "server1:8080", "test server #1"},
+		{fmt.Sprintf("%s/api/v2/wtf/mad-data", baseAddress), "server1:8080", "test server #1"},
 		{fmt.Sprintf("%s/api/v1/wow-data", baseAddress), "server2:8080", "test server #2"},
 		{fmt.Sprintf("%s/really/good/end-point", baseAddress), "server3:8080", "test server #3"},
 	}

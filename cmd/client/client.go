@@ -15,7 +15,7 @@ func main() {
 	client := new(http.Client)
 	client.Timeout = 10 * time.Second
 
-	endpoints := []string{"api/v1/wow-data", "api/v2/wtf/lol-data", "really/good/end-point"}
+	endpoints := []string{"api/v1/wow-data", "api/v2/wtf/mad-data", "really/good/end-point"}
 
 	for range time.Tick(1 * time.Second) {
 		for _, endpoint := range endpoints {

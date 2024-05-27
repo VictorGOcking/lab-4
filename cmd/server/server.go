@@ -54,7 +54,7 @@ func main() {
 
 	addComplexHandlers(h, report, []string{
 		"/api/v1/wow-data",
-		"/api/v2/wtf/lol-data",
+		"/api/v2/wtf/mad-data",
 		"/really/good/end-point",
 	})
 
