@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 type Segment struct {
@@ -12,6 +13,7 @@ type Segment struct {
 	offset int64
 
 	index HashIndex
+	mu    sync.Mutex
 }
 
 func (s *Segment) Read(pos int64) (string, error) {
@@ -90,10 +92,14 @@ func (sl *SegmentList) GetLast() *Segment {
 func (sl *SegmentList) Find(key string) (*Segment, int64, error) {
 	for _, segment := range sl.list {
 		pos, ok := segment.index[key]
+		segment.mu.Lock()
 
 		if ok {
+			segment.mu.Unlock()
 			return segment, pos, nil
 		}
+
+		segment.mu.Unlock()
 	}
 
 	return nil, 0, ErrNotFound
@@ -101,11 +107,15 @@ func (sl *SegmentList) Find(key string) (*Segment, int64, error) {
 
 func contains(list []*Segment, key string) bool {
 	for _, s := range list {
+		s.mu.Lock()
+
 		_, ok := s.index[key]
 
 		if ok {
+			s.mu.Unlock()
 			return true
 		}
+		s.mu.Unlock()
 	}
 	return false
 }
@@ -128,6 +138,8 @@ func (sl *SegmentList) Compact() {
 		last := len(sl.list) - 1
 		for i := 0; i < last; i++ {
 			s := sl.list[i]
+			s.mu.Lock()
+
 			for key, index := range s.index {
 				if i < last-1 {
 					isNew := contains(sl.list[i+1:last], key)
@@ -148,6 +160,7 @@ func (sl *SegmentList) Compact() {
 					offset += int64(n)
 				}
 			}
+			s.mu.Unlock()
 		}
 		sl.list = []*Segment{segment, sl.GetLast()}
 	}()
