@@ -15,7 +15,7 @@ func TestDatabasePut(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	db, err := NewDb(tempDir, 150)
+	db, err := NewDb(tempDir, 250)
 	if err != nil {
 		t.Fatal("Failed to create new database:", err)
 	}
@@ -98,7 +98,7 @@ func TestDatabaseSegmentation(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	db, err := NewDb(tempDir, 45)
+	db, err := NewDb(tempDir, 85)
 	if err != nil {
 		t.Fatal("Failed to create new database:", err)
 	}
@@ -143,7 +143,7 @@ func TestDatabaseSegmentation(t *testing.T) {
 		if err != nil {
 			t.Fatal("Failed to get segment file information:", err)
 		}
-		expectedSize := int64(66)
+		expectedSize := int64(126)
 		if fileInfo.Size() != expectedSize {
 			t.Errorf("Segment file size mismatch: expected %d, got %d", expectedSize, fileInfo.Size())
 		}
@@ -157,6 +157,40 @@ func TestDatabaseSegmentation(t *testing.T) {
 		}
 		if retrievedValue != expectedValue {
 			t.Errorf("Value mismatch for key 'key2': expected %s, got %s", expectedValue, retrievedValue)
+		}
+	})
+}
+
+func TestDatabaseChecksum(t *testing.T) {
+	dir, err := ioutil.TempDir("", "db-testing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	db, err := NewDb(dir, 85)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	db.Put("key1", "value1")
+
+	t.Run("Get value", func(t *testing.T) {
+		_, err := db.Get("key1")
+		if err != nil {
+			t.Errorf("Value is not got")
+		}
+	})
+
+	file, _ := os.OpenFile(db.segments.GetLast().path, os.O_RDWR, 0o655)
+	file.WriteAt([]byte{0x59}, int64(3))
+	file.Close()
+
+	t.Run("Does not get value", func(t *testing.T) {
+		_, err := db.Get("key1")
+		if err == nil {
+			t.Errorf("No expected error occured")
 		}
 	})
 }
