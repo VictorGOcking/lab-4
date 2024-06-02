@@ -121,7 +121,11 @@ func (db *Db) recover() error {
 		)
 		header, err = in.Peek(bufferSize)
 
-		if (err == io.EOF && len(header) == 0) || err != nil {
+		if err == io.EOF {
+			if len(header) == 0 {
+				return err
+			}
+		} else if err != nil {
 			return err
 		}
 
