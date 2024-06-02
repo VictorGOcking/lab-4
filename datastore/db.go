@@ -6,114 +6,90 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 )
 
-const outFileName = "current-data"
+const (
+	outFileName = "current-data"
+	bufferSize  = 8192 // 1 K = 8192 B
+)
 
 var ErrNotFound = fmt.Errorf("record does not exist")
 
-type hashIndex map[string]int64
+type HashIndex map[string]int64
 
 type Db struct {
-	out       *os.File
-	outPath   string
-	outOffset int64
+	// Output options
+	out    *os.File
+	offset int64
 
-	index hashIndex
+	// Segmentation
+	segments *SegmentList
+
+	// Goroutines handlers
+	operator HashOperator
+	ops      chan EntryElement
+
+	// Hash indexing
+	index HashIndex
 }
 
-func NewDb(dir string) (*Db, error) {
-	outputPath := filepath.Join(dir, outFileName)
-	f, err := os.OpenFile(outputPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
+func NewDb(dir string, segmentSize int64) (*Db, error) {
+	db := &Db{
+		segments: NewSegmentList(segmentSize, dir),
+		operator: HashOperator{
+			queries: make(chan HashOperation),
+			answers: make(chan *SegmentPosition),
+		},
+		ops: make(chan EntryElement),
+	}
+
+	err := db.addSegment()
+
 	if err != nil {
 		return nil, err
 	}
-	db := &Db{
-		outPath: outputPath,
-		out:     f,
-		index:   make(hashIndex),
-	}
+
 	err = db.recover()
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
+
+	// Start goroutines handlers
+	db.handleInput()
+	db.handleOperations()
+
 	return db, nil
 }
 
-const bufSize = 8192
+func (db *Db) addSegment() error {
+	f, err := db.segments.Add()
+	db.out = f
+	db.offset = 0
 
-func (db *Db) recover() error {
-	input, err := os.Open(db.outPath)
-	if err != nil {
-		return err
-	}
-	defer input.Close()
-
-	var buf [bufSize]byte
-	in := bufio.NewReaderSize(input, bufSize)
-	for err == nil {
-		var (
-			header, data []byte
-			n            int
-		)
-		header, err = in.Peek(bufSize)
-		if err == io.EOF {
-			if len(header) == 0 {
-				return err
-			}
-		} else if err != nil {
-			return err
-		}
-		size := binary.LittleEndian.Uint32(header)
-
-		if size < bufSize {
-			data = buf[:size]
-		} else {
-			data = make([]byte, size)
-		}
-		n, err = in.Read(data)
-
-		if err == nil {
-			if n != int(size) {
-				return fmt.Errorf("corrupted file")
-			}
-
-			var e entry
-			e.Decode(data)
-			db.index[e.key] = db.outOffset
-			db.outOffset += int64(n)
-		}
-	}
 	return err
 }
 
-func (db *Db) Close() error {
-	return db.out.Close()
+func (db *Db) find(key string) *SegmentPosition {
+	op := HashOperation{
+		put: false,
+		key: key,
+	}
+
+	db.operator.queries <- op
+	return <-db.operator.answers
 }
 
 func (db *Db) Get(key string) (string, error) {
-	position, ok := db.index[key]
-	if !ok {
+	keyPos := db.find(key)
+	if keyPos == nil {
 		return "", ErrNotFound
 	}
 
-	file, err := os.Open(db.outPath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	_, err = file.Seek(position, 0)
+	value, err := keyPos.segment.Read(keyPos.position)
 	if err != nil {
 		return "", err
 	}
 
-	reader := bufio.NewReader(file)
-	value, err := readValue(reader)
-	if err != nil {
-		return "", err
-	}
 	return value, nil
 }
 
@@ -122,10 +98,59 @@ func (db *Db) Put(key, value string) error {
 		key:   key,
 		value: value,
 	}
-	n, err := db.out.Write(e.Encode())
-	if err == nil {
-		db.index[key] = db.outOffset
-		db.outOffset += int64(n)
+
+	ee := EntryElement{
+		ent: e,
+		err: make(chan error),
+	}
+
+	db.ops <- ee
+	return <-ee.err
+}
+
+func (db *Db) recover() error {
+	var err error
+	var buf [bufferSize]byte
+
+	in := bufio.NewReaderSize(db.out, bufferSize)
+	for err == nil {
+		var (
+			header []byte
+			data   []byte
+			n      int
+		)
+		header, err = in.Peek(bufferSize)
+
+		if (err == io.EOF && len(header) == 0) || err != nil {
+			return err
+		}
+
+		size := binary.LittleEndian.Uint32(header)
+
+		if size < bufferSize {
+			data = buf[:size]
+		} else {
+			data = make([]byte, size)
+		}
+
+		n, err = in.Read(data)
+		if err != nil {
+			return err
+		}
+
+		if n != int(size) {
+			return fmt.Errorf("corrupted file")
+		}
+
+		var e entry
+		e.Decode(data)
+
+		db.segments.GetLast().index[e.key] = db.offset
+		db.offset += int64(n)
 	}
 	return err
+}
+
+func (db *Db) Close() error {
+	return db.out.Close()
 }
