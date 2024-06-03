@@ -1,7 +1,9 @@
 package integration
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"testing"
@@ -42,15 +44,43 @@ func TestBalancer(t *testing.T) {
 
 	// Test repeated request to server #3
 	runServerTest(t, fmt.Sprintf("%s/really/good/end-point", baseAddress), serverTests[2].expectedLB, "test repeated request to server #3")
+
+	testDatabaseRequest(t, "victorgocking")
+
 }
 
 func runServerTest(t *testing.T, url, expectedLB, description string) {
 	resp, err := client.Get(url)
 	assert.NoError(t, err, description)
-	defer resp.Body.Close()
+  
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(resp.Body)
 
 	lbHeader := resp.Header.Get("lb-from")
 	assert.Equal(t, expectedLB, lbHeader, description)
+}
+
+func testDatabaseRequest(t *testing.T, expectedKey string) {
+	dbResp, err := client.Get(fmt.Sprintf("%s/api/v1/some-data?key=%s", baseAddress, expectedKey))
+	assert.NoError(t, err, "test request to check database")
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(dbResp.Body)
+
+	var body ResponseBody
+	err = json.NewDecoder(dbResp.Body).Decode(&body)
+	assert.NoError(t, err, "decode response body")
+
+	assert.Equal(t, expectedKey, body.Key, "check response key")
+	assert.NotEmpty(t, body.Value, "check response value")
+
 }
 
 func BenchmarkBalancer(b *testing.B) {
@@ -61,6 +91,10 @@ func BenchmarkBalancer(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		resp, err := client.Get(fmt.Sprintf("%s/api/v1/wow-data", baseAddress))
 		assert.NoError(b, err, "benchmark request")
-		resp.Body.Close()
+    
+		err = resp.Body.Close()
+		if err != nil {
+			return
+		}
 	}
 }
