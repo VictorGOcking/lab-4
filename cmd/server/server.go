@@ -32,6 +32,25 @@ type ResponseStruct struct {
 	Value string `json:"value"`
 }
 
+func addComplexHandlers(h *http.ServeMux, report Report, paths []string) {
+	for _, path := range paths {
+		h.HandleFunc(path, func(rw http.ResponseWriter, r *http.Request) {
+			respDelayString := os.Getenv(confResponseDelaySec)
+			if delaySec, parseErr := strconv.Atoi(respDelayString); parseErr == nil && delaySec > 0 && delaySec < 300 {
+				time.Sleep(time.Duration(delaySec) * time.Second)
+			}
+
+			report.Process(r)
+
+			rw.Header().Set("content-type", "application/json")
+			rw.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(rw).Encode([]string{
+				"1", "2",
+			})
+		})
+	}
+}
+
 func main() {
 	h := http.NewServeMux()
 	client := http.DefaultClient
@@ -40,6 +59,7 @@ func main() {
 	report := make(Report)
 
 	h.HandleFunc("/api/v1/some-data", someDataHandler(client, report))
+
 	addComplexHandlers(h, report, []string{
 		"/api/v1/wow-data",
 		"/api/v2/wtf/mad-data",
@@ -129,20 +149,4 @@ func storeCurrentDate(client *http.Client) {
 
 		}
 	}(resp.Body)
-}
-
-func addComplexHandlers(h *http.ServeMux, report Report, paths []string) {
-	for _, path := range paths {
-		h.HandleFunc(path, func(rw http.ResponseWriter, r *http.Request) {
-			if delaySec, err := strconv.Atoi(os.Getenv(confResponseDelaySec)); err == nil && delaySec > 0 && delaySec < 300 {
-				time.Sleep(time.Duration(delaySec) * time.Second)
-			}
-
-			report.Process(r)
-
-			rw.Header().Set("content-type", "application/json")
-			rw.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(rw).Encode([]string{"1", "2"})
-		})
-	}
 }

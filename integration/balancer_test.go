@@ -46,11 +46,13 @@ func TestBalancer(t *testing.T) {
 	runServerTest(t, fmt.Sprintf("%s/really/good/end-point", baseAddress), serverTests[2].expectedLB, "test repeated request to server #3")
 
 	testDatabaseRequest(t, "victorgocking")
+
 }
 
 func runServerTest(t *testing.T, url, expectedLB, description string) {
 	resp, err := client.Get(url)
 	assert.NoError(t, err, description)
+  
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
@@ -78,6 +80,7 @@ func testDatabaseRequest(t *testing.T, expectedKey string) {
 
 	assert.Equal(t, expectedKey, body.Key, "check response key")
 	assert.NotEmpty(t, body.Value, "check response value")
+
 }
 
 func BenchmarkBalancer(b *testing.B) {
@@ -88,6 +91,7 @@ func BenchmarkBalancer(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		resp, err := client.Get(fmt.Sprintf("%s/api/v1/wow-data", baseAddress))
 		assert.NoError(b, err, "benchmark request")
+    
 		err = resp.Body.Close()
 		if err != nil {
 			return
